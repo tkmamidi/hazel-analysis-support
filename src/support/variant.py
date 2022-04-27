@@ -62,25 +62,65 @@ def variant():
         final_graph = nx.DiGraph(final_graph)
         return final_graph
 
+    @st.cache(allow_output_mutation=True)
+    def gene_df(gene2hpo,graph):
+        gene2hpo_dict = {}
+        for gene_name in gene2hpo.keys():
+            for hp_term in gene2hpo[gene_name]:
+                if gene_name not in gene2hpo_dict:
+                    gene2hpo_dict[gene_name] = list([])
+                gene2hpo_dict[gene_name].append(hp_term)
+                gene2hpo_dict[gene_name] = gene2hpo_dict[gene_name] + list(nx.predecessor(graph, hp_term))
+            gene2hpo_dict[gene_name] = list(
+                    dict.fromkeys(gene2hpo_dict[gene_name])
+                )  # check for duplicate values and drop them
+
+        gene2hpo_dict = {"Genes": list(gene2hpo_dict.keys()), "HPOs": list(gene2hpo_dict.values())}
+        gene2hpo_dict = pd.DataFrame(gene2hpo_dict)
+        return gene2hpo_dict
+
+    @st.cache(allow_output_mutation=True)
+    def gene_ranks(terms, gene_scores):
+        term_len = len(terms)
+        gene_scores["score"] = [
+                            (len(list(set(terms) & set(i)))) / term_len
+                            for i in gene_scores["HPOs"]
+                        ]
+        gene_scores = gene_scores.sort_values(by="score", ascending=False).reset_index(
+                                drop=True
+                            )
+
+        gene_scores.drop("HPOs", axis=1, inplace=True)
+        gene_scores.index = gene_scores.index + 1
+        gene_scores = gene_scores.style.format(subset="score", precision=2).bar(subset="score", align="mid")
+
+        return gene_scores
+
     data_load_state = st.text("Loading data...")
     gene2hpo, graph, id_to_name, res = load_data()
     data_load_state.text("Loaded HPO data!")
     data_load_state.text("")
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     # if col1.checkbox("Show loaded HPO metadata data"):
     #    col1.write(data.graph)
 
     options = col1.multiselect("Select HPO terms:", list(res.keys()))
-    gene = col2.selectbox("Select a Gene:", list(gene2hpo.keys()))
+    gene = col3.selectbox("Select a Gene:", list(gene2hpo.keys()))
     terms = [res[term] for term in options]
+    col2.write("Hazel scores for Genes:")
 
-    if st.button("submit") and len(terms) != 0:
+    if col1.button("submit") and len(terms) != 0:
         term_len = len(terms)
         list_terms = {key + " : " + id_to_name[key] for key in terms}
         col1.write(f"Total HPO terms = {term_len}")
         col1.write(list(list_terms))
+
+        gene2hpo_dict = gene_df(gene2hpo,graph)
+        gene_scores = gene_ranks(terms, gene2hpo_dict)
+        #col2.dataframe(gene_scores)
+        col2.write(gene_scores.to_html(), unsafe_allow_html=True)
 
         final_graph = get_graph(graph, gene2hpo[gene])
 
@@ -91,7 +131,7 @@ def variant():
         gene2hpo_assoc = list(set(gene2hpo_assoc) - set(gene2hpo[gene]))
 
         score = (len(list(set(terms) & set(gene2hpo[gene] + gene2hpo_assoc)))) / term_len
-        col2.subheader(f"Hazel score = {score}")
+        col3.subheader(f"Hazel score = {score}")
 
         direct = {key + " : " + id_to_name[key] for key in list(set(terms) & set(gene2hpo[gene]))}
         indirect = {key + " : " + id_to_name[key] for key in list(set(terms) & set(gene2hpo_assoc))}
@@ -100,11 +140,13 @@ def variant():
             for key in list(set(terms) & set(gene2hpo[gene] + gene2hpo_assoc))
         }
 
-        col2.write(f"\n\nDirect associations: {len(list(direct))}")
-        col2.write(list(direct))
-        col2.write(f"\n\nIndirect associations: {len(list(indirect))}")
-        col2.write(list(indirect))
-        col2.write(f"\n\nALL associations: {len(list(all_associations))}")
-        col2.write(list(all_associations))
+        col3.write(f"\n\nDirect associations: {len(list(direct))}")
+        col3.write(list(direct))
+        col3.write(f"\n\nIndirect associations: {len(list(indirect))}")
+        col3.write(list(indirect))
+        col3.write(f"\n\nALL associations: {len(list(all_associations))}")
+        col3.write(list(all_associations))
 
+    else:
+        st.write("Please select at least one phenotype term!")
     return None

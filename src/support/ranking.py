@@ -1,2 +1,0 @@
-def ranking():
-    return None
