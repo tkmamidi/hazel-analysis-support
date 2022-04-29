@@ -3,11 +3,12 @@ import pandas as pd
 import obonet
 import requests
 import networkx as nx
+import re
 
 # st.sidebar.subheader("OMIM diseases and associated HPO terms!")
 
 
-def variant():
+def gene():
     st.title("Gene to Phenotype associations")
     # st.write(
     #    "Ditto+Hazel together assist clinical analysts and MDx lab directors in their rare disease genomic variant interpretation workflow by providing a ranked list of genes based on the patient's clinically recorded phenotype and by determining when there are likely to be more variants not yet identified that are contributing to the patients phenotype."
@@ -38,13 +39,11 @@ def variant():
                 if gene_name not in gene2hpo:
                     gene2hpo[gene_name] = list([])
                 gene2hpo[gene_name].append(hp_term)
-                # gene2hpo[gene_name] = gene2hpo[gene_name] + list(nx.neighbors(graph, hp_term))
-                # gene2hpo_assoc[gene_name] = gene2hpo[gene_name] + list(nx.ancestors(graph.reverse(), hp_term))
-                # gene2hpo[gene_name] = gene2hpo[gene_name] + list(graph.predecessors(hp_term)) + list(graph.successors(hp_term))
                 gene2hpo[gene_name] = list(
                     dict.fromkeys(gene2hpo[gene_name])
                 )  # check for duplicate values and drop them
                 gene2hpo[gene_name] = list(filter(None, gene2hpo[gene_name]))
+
                 # gene2hpo_assoc[gene_name] = list(
                 #    dict.fromkeys(gene2hpo_assoc[gene_name])
                 # )  # check for duplicate values and drop them
@@ -52,7 +51,8 @@ def variant():
                 #    filter(None, gene2hpo_assoc[gene_name])
                 # )
 
-        return gene2hpo, graph, id_to_name, res  # ,gene2hpo_assoc
+        gene2hpo_dict = gene_df(gene2hpo,graph)
+        return gene2hpo, gene2hpo_dict, graph, id_to_name, res  # ,gene2hpo_assoc
 
     def get_graph(graph, hpos):
         final_graph = nx.MultiGraph()
@@ -80,10 +80,10 @@ def variant():
         return gene2hpo_dict
 
     @st.cache(allow_output_mutation=True)
-    def gene_ranks(terms, gene_scores):
-        term_len = len(terms)
+    def gene_ranks(hpo_terms, gene_scores):
+        term_len = len(hpo_terms)
         gene_scores["score"] = [
-                            (len(list(set(terms) & set(i)))) / term_len
+                            (len(list(set(hpo_terms) & set(i)))) / term_len
                             for i in gene_scores["HPOs"]
                         ]
         gene_scores = gene_scores.sort_values(by="score", ascending=False).reset_index(
@@ -97,7 +97,7 @@ def variant():
         return gene_scores
 
     data_load_state = st.text("Loading data...")
-    gene2hpo, graph, id_to_name, res = load_data()
+    gene2hpo, gene2hpo_dict, graph, id_to_name, res = load_data()
     data_load_state.text("Loaded HPO data!")
     data_load_state.text("")
 
@@ -105,19 +105,26 @@ def variant():
 
     # if col1.checkbox("Show loaded HPO metadata data"):
     #    col1.write(data.graph)
+    terms = []
+    hpo_entry = col1.radio("Type of HPO input", ['List', 'Manual'])
+    if hpo_entry == 'Manual':
+        options = col1.multiselect("Select HPO terms:", list(res.keys()))
+        if col1.button('Submit'):
+                terms = [res[term] for term in options]
+    else:
+        hpo_text = col1.text_input('List of HPO terms seperated by comma/space/semi-colon', '')
+        if hpo_text != '':
+            terms = re.split(r'[,;\s]',hpo_text)
 
-    options = col1.multiselect("Select HPO terms:", list(res.keys()))
     gene = col3.selectbox("Select a Gene:", list(gene2hpo.keys()))
-    terms = [res[term] for term in options]
     col2.write("Hazel scores for Genes:")
 
-    if col1.button("submit") and len(terms) != 0:
+    if len(terms) != 0:
         term_len = len(terms)
         list_terms = {key + " : " + id_to_name[key] for key in terms}
         col1.write(f"Total HPO terms = {term_len}")
         col1.write(list(list_terms))
 
-        gene2hpo_dict = gene_df(gene2hpo,graph)
         gene_scores = gene_ranks(terms, gene2hpo_dict)
         #col2.dataframe(gene_scores)
         col2.write(gene_scores.to_html(), unsafe_allow_html=True)
@@ -135,17 +142,17 @@ def variant():
 
         direct = {key + " : " + id_to_name[key] for key in list(set(terms) & set(gene2hpo[gene]))}
         indirect = {key + " : " + id_to_name[key] for key in list(set(terms) & set(gene2hpo_assoc))}
-        all_associations = {
-            key + " : " + id_to_name[key]
-            for key in list(set(terms) & set(gene2hpo[gene] + gene2hpo_assoc))
-        }
+        #all_associations = {
+        #    key + " : " + id_to_name[key]
+        #    for key in list(set(terms) & set(gene2hpo[gene] + gene2hpo_assoc))
+        #}
 
         col3.write(f"\n\nDirect associations: {len(list(direct))}")
         col3.write(list(direct))
         col3.write(f"\n\nIndirect associations: {len(list(indirect))}")
         col3.write(list(indirect))
-        col3.write(f"\n\nALL associations: {len(list(all_associations))}")
-        col3.write(list(all_associations))
+        #col3.write(f"\n\nALL associations: {len(list(all_associations))}")
+        #col3.write(list(all_associations))
 
     else:
         st.write("Please select at least one phenotype term!")
