@@ -1,6 +1,5 @@
 import streamlit as st
-from support.variant import variant
-from support.ranking import ranking
+from support.gene import gene
 from support.about import about
 
 # Config the whole app
@@ -23,7 +22,7 @@ def main():
 
     # st.sidebar.title("Tools")
 
-    PAGES = {"Home": about, "Variant": variant, "Ranking": ranking}
+    PAGES = {"Home": about, "Gene": gene}
 
     # Select pages
     # Use dropdown if you prefer
