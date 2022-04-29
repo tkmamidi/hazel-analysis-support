@@ -106,19 +106,26 @@ def gene():
     # if col1.checkbox("Show loaded HPO metadata data"):
     #    col1.write(data.graph)
     terms = []
-    hpo_entry = col1.radio("Type of HPO input", ['List', 'Manual'])
-    if hpo_entry == 'Manual':
-        options = col1.multiselect("Select HPO terms:", list(res.keys()))
-        if col1.button('Submit'):
-                terms = [res[term] for term in options]
-    else:
-        hpo_text = col1.text_input('List of HPO terms seperated by comma/space/semi-colon', '')
-        if hpo_text != '':
-            terms = re.split(r'[,;\s]',hpo_text)
+    #hpo_entry = col1.radio("Type of HPO input", ['List', 'Manual'])
+    #if hpo_entry == 'Manual':
+    #    options = col1.multiselect("Select HPO terms:", list(res.keys()))
+    #    if col1.button('Submit'):
+    #            terms = [res[term] for term in options]
+    #else:
+    #    hpo_text = col1.text_input('List of HPO terms seperated by comma/space/semi-colon', '')
+    #    if hpo_text != '':
+    #        terms = re.split(r'[,;\s]',hpo_text)
+
+    options = col1.multiselect("Select HPO terms:", list(res.keys()))
+    terms = [res[term] for term in options]
+    hpo_text = col1.text_input('List of HPO terms seperated by comma/space/semi-colon', '')
+    terms =  terms + re.split(r'[,;\s]',hpo_text)
+    terms = list(filter(None, terms))
 
     gene = col3.selectbox("Select a Gene:", list(gene2hpo.keys()))
     col2.write("Hazel scores for Genes:")
 
+    #if col1.button('Submit') and len(terms) != 0:
     if len(terms) != 0:
         term_len = len(terms)
         list_terms = {key + " : " + id_to_name[key] for key in terms}
