@@ -101,10 +101,6 @@ def gene():
 
         # gene_scores.drop(["HPOs","Associated HPOs"], axis=1, inplace=True)
         gene_scores.index = gene_scores.index + 1
-
-        gene_scores = gene_scores.style.format(subset="score", precision=2).bar(
-            subset="score", align="mid"
-        )
         return gene_scores
 
     data_load_state = st.text("Loading data...")
@@ -135,7 +131,10 @@ def gene():
         col1.write(list(list_terms))
 
         gene_scores = gene_ranks(terms, gene2hpo_df)
-
+        col2.download_button( "Download Gene ranks", gene_scores.to_csv(), "Hazel_predictions.csv", "text/csv", key="download-csv")
+        gene_scores = gene_scores.style.format(subset="score", precision=2).bar(
+            subset="score", align="mid"
+        )
         col2.write(gene_scores.to_html(), unsafe_allow_html=True)
 
         gene_direct_hpo = list(
