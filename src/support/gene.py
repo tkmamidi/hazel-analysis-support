@@ -131,6 +131,8 @@ def gene():
         col1.write(list(list_terms))
 
         gene_scores = gene_ranks(terms, gene2hpo_df)
+        cutoff = col2.slider('Score cutoff?', 0.0, 1.0, 0.1)
+        gene_scores = gene_scores[gene_scores.score>cutoff]
         col2.download_button( "Download Gene ranks", gene_scores.to_csv(), "Hazel_predictions.csv", "text/csv", key="download-csv")
         gene_scores = gene_scores.style.format(subset="score", precision=2).bar(
             subset="score", align="mid"
